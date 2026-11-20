@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js"></script>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--ink:#0f2f30;--mut:#4b6b6b;--aqua:#f2fbfa;--lt2:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a1f20;--card:#10393a;--ink:#e6fffb;--mut:#9ccfc8;--aqua:#0c2b2c;--lt2:#0a1f20}}
@@ -217,22 +218,80 @@ const jpeg=(f,m,q)=>scale(f,m,'image/jpeg',q);
 const comp=f=>jpeg(f,512,.82).then(u=>u.split(',')[1]);
 function showSteps(n){$('#steps').innerHTML=STEPS.map((s,i)=>`<li class="step flex items-center gap-2 ${i<n?'done':''} ${i===n?'on':''}"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] ${i<n?'bg-teal-600 text-white':'border border-teal-400'}">${i<n?'✓':i+1}</span>${i+1}. ${s}</li>`).join('')}
 const setP=(pc,st)=>{$('#bar').style.width=pc+'%';$('#pct').textContent=Math.round(pc)+'%';showSteps(st)};
+/* ---------- 100% client-side ONNX inference (onnxruntime-web) ---------- */
+const MODEL_BASE='https://raw.githubusercontent.com/hoooriamiri-hash/leishscan-ai-api/main/onnx_models/';
+const LESION_MODELS=[0,1,2,3,4].map(i=>`best_model_fold${i}.onnx`),YOLO_MODEL='microscopy_best.onnx';
+const LESION_THRESHOLD=0.25,YOLO_CONF=0.25,YOLO_IOU=0.45;
+let modelsP=null;
+async function fetchModel(name,onProg){
+ const url=MODEL_BASE+name;let cache=null;
+ try{cache=await caches.open('leishscan-onnx-v1');const hit=await cache.match(url);if(hit){const b=await hit.arrayBuffer();onProg(b.byteLength,b.byteLength);return b}}catch(e){cache=null}
+ const r=await fetch(url);if(!r.ok)throw new Error('Could not download model '+name+' (HTTP '+r.status+')');
+ const total=Number(r.headers.get('content-length'))||0,reader=r.body.getReader(),parts=[];let got=0;
+ for(;;){const{done,value}=await reader.read();if(done)break;parts.push(value);got+=value.length;onProg(got,total||got)}
+ const buf=new Uint8Array(got);let o=0;for(const c of parts){buf.set(c,o);o+=c.length}
+ try{if(cache)await cache.put(url,new Response(buf.buffer,{headers:{'Content-Type':'application/octet-stream'}}))}catch(e){}
+ return buf.buffer}
+function loadModels(onFrac){
+ if(modelsP)return modelsP;
+ const names=[...LESION_MODELS,YOLO_MODEL],st=names.map(n=>({got:0,tot:n===YOLO_MODEL?13e6:30e6}));
+ const upd=()=>onFrac(Math.min(1,st.reduce((a,x)=>a+x.got,0)/st.reduce((a,x)=>a+Math.max(x.tot,x.got),0)));
+ modelsP=Promise.all(names.map(async(n,i)=>{const buf=await fetchModel(n,(g,t)=>{st[i].got=g;st[i].tot=t;upd()});return ort.InferenceSession.create(buf,{executionProviders:['wasm'],graphOptimizationLevel:'all'})})).then(all=>({lesion:all.slice(0,5),yolo:all[5]}));
+ modelsP.catch(()=>{modelsP=null});
+ return modelsP}
+function lesionTensor(bmp){
+ const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingQuality='high';x.drawImage(bmp,0,0,256,256);
+ const d=x.getImageData(0,0,256,256).data,N=256*256,f=new Float32Array(3*N),m=[.485,.456,.406],sd=[.229,.224,.225];
+ for(let i=0;i<N;i++)for(let k=0;k<3;k++)f[k*N+i]=(d[i*4+k]/255-m[k])/sd[k];
+ return new ort.Tensor('float32',f,[1,3,256,256])}
+function yoloInput(bmp){
+ const S=1024,w=bmp.width,h=bmp.height,r=Math.min(S/w,S/h),nw=Math.round(w*r),nh=Math.round(h*r),left=Math.round((S-nw)/2-.1),top=Math.round((S-nh)/2-.1);
+ const c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d',{willReadFrequently:true});
+ x.fillStyle='rgb(114,114,114)';x.fillRect(0,0,S,S);x.imageSmoothingQuality='high';x.drawImage(bmp,left,top,nw,nh);
+ const d=x.getImageData(0,0,S,S).data,N=S*S,f=new Float32Array(3*N);
+ for(let i=0;i<N;i++){f[i]=d[i*4]/255;f[N+i]=d[i*4+1]/255;f[2*N+i]=d[i*4+2]/255}
+ return{tensor:new ort.Tensor('float32',f,[1,3,S,S]),r,left,top,w,h}}
+const iou=(a,b)=>{const iw=Math.min(a.x2,b.x2)-Math.max(a.x1,b.x1),ih=Math.min(a.y2,b.y2)-Math.max(a.y1,b.y1);if(iw<=0||ih<=0)return 0;const i=iw*ih;return i/((a.x2-a.x1)*(a.y2-a.y1)+(b.x2-b.x1)*(b.y2-b.y1)-i)};
+function yoloDecode(out,m){
+ const dims=out.dims,d=out.data;let C,A,at;
+ if(dims[1]<dims[2]){C=dims[1];A=dims[2];at=(c,a)=>d[c*A+a]}else{A=dims[1];C=dims[2];at=(c,a)=>d[a*C+c]}
+ const cand=[];
+ for(let a=0;a<A;a++){let cf=0;for(let c=4;c<C;c++){const v=at(c,a);if(v>cf)cf=v}
+  if(cf<YOLO_CONF)continue;const cx=at(0,a),cy=at(1,a),w=at(2,a),h=at(3,a);
+  cand.push({x1:cx-w/2,y1:cy-h/2,x2:cx+w/2,y2:cy+h/2,conf:cf})}
+ cand.sort((a,b)=>b.conf-a.conf);const keep=[];
+ for(const b of cand)if(keep.every(k=>iou(b,k)<=YOLO_IOU))keep.push(b);
+ const cl=(v,mx)=>Math.max(0,Math.min(mx,v)),rd1=v=>Math.round(v*10)/10;
+ return keep.map(b=>({x1:rd1(cl((b.x1-m.left)/m.r,m.w)),y1:rd1(cl((b.y1-m.top)/m.r,m.h)),x2:rd1(cl((b.x2-m.left)/m.r,m.w)),y2:rd1(cl((b.y2-m.top)/m.r,m.h)),confidence:Number(b.conf.toFixed(4))}))}
+async function runLocal(){
+ if(!window.ort)throw new Error('The AI engine (onnxruntime-web) failed to load. Check your connection and reload the page.');
+ ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
+ let hi=0;const prog=f=>{hi=Math.max(hi,10+f*50);setP(hi,0)};
+ const[bL,bM]=await Promise.all([createImageBitmap(files.lesion),createImageBitmap(files.micro)]);
+ try{
+  const M=await loadModels(prog);
+  setP(62,1);await sleep(30);
+  const lt=lesionTensor(bL);let sum=0;
+  for(let i=0;i<M.lesion.length;i++){const se=M.lesion[i],o=await se.run({[se.inputNames[0]]:lt});const lg=(o.logits||o[se.outputNames[0]]).data[0];sum+=1/(1+Math.exp(-lg));setP(62+(i+1)/M.lesion.length*14,1);await sleep(0)}
+  const p=sum/M.lesion.length,lesion_yes=p>=LESION_THRESHOLD;
+  setP(78,2);await sleep(30);
+  const yi=yoloInput(bM),yo=await M.yolo.run({[M.yolo.inputNames[0]]:yi.tensor});
+  const detections=yoloDecode(yo[M.yolo.outputNames[0]],yi),n_amast=detections.length,parasite_yes=n_amast>0;
+  setP(94,3);
+  let system_output,next_step;
+  if(lesion_yes&&parasite_yes){system_output='Suspected CL, parasites demonstrated';next_step='Clinical assessment for initiation of CL treatment'}
+  else if(lesion_yes){system_output='Suspected CL; CL not excluded. Parasites may not be demonstrable, particularly in chronic lesions';next_step='Skin biopsy for histopathological examination (HP) to further investigate CL'}
+  else if(parasite_yes){system_output='Atypical presentation / clinical suspicion';next_step='Clinical assessment for initiation of CL treatment'}
+  else{system_output='CL is not the leading diagnosis, but CL needs to be excluded';next_step='Skin biopsy and further investigations to exclude CL and establish alternative diagnoses'}
+  return{clinical_lesion:{present:lesion_yes,probability:Number(p.toFixed(4)),threshold:LESION_THRESHOLD},parasite_present:{present:parasite_yes,amastigote_count:n_amast,detections},system_output,next_step,disclaimer:'Decision-support tool for research use. Not a substitute for clinical judgement.'}
+ }finally{bL.close&&bL.close();bM.close&&bM.close()}}
 $('#submit').onclick=async()=>{
  $('#err').textContent='';$('#submit').disabled=true;$('#results').classList.add('hidden');$('#progress').classList.remove('hidden');setP(10,0);
  const t0=Date.now(),tm=setInterval(()=>$('#timer').textContent=Math.round((Date.now()-t0)/1000)+'s',500);
  lastId='REQ-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
  try{let res;
   if(demo){for(const[pc,st]of[[35,1],[70,2],[95,3]]){await sleep(650);setP(pc,st)}await sleep(450);res=SAMPLE_RESULT}
-  else{
-   const[lesionBase64,microscopyBase64]=await Promise.all([comp(files.lesion),comp(files.micro)]);
-   await api({action:'start',lesionBase64,microscopyBase64,requestId:lastId});setP(35,1);
-   const tp=Date.now(),end=tp+120000;
-   while(!res){
-    if(Date.now()>end)throw new Error('The analysis is taking longer than expected (120 s). Please try again in a moment.');
-    await sleep(1000);const q=await api({action:'poll',requestId:lastId});
-    if(q.status==='completed'){res=q.result||q;break}
-    if(q.status==='failed')throw new Error(q.error||'Analysis failed.');
-    const pc=Math.min(95,35+60*(1-Math.exp(-(Date.now()-tp)/40000)));setP(pc,pc<60?1:pc<85?2:3)}}
+  else{res=await runLocal()}
   setP(100,4);await sleep(300);render(res)}catch(e){$('#err').textContent=e.message}
  finally{clearInterval(tm);$('#progress').classList.add('hidden');upd()}};
 function norm(r){
