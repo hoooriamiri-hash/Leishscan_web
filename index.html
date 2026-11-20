@@ -236,11 +236,11 @@ $('#submit').onclick=async()=>{
   setP(100,4);await sleep(300);render(res)}catch(e){$('#err').textContent=e.message}
  finally{clearInterval(tm);$('#progress').classList.add('hidden');upd()}};
 function norm(r){
- const L=r.clinical_lesion||{},M=r.microscopy||r.parasite_detection||{};
+ const L=r.clinical_lesion||{},M=r.parasite_present||r.microscopy||r.parasite_detection||{};
  const raw=M.amastigote_count??M.count??M.amastigotes??M.num_amastigotes??(Array.isArray(M.detections)?M.detections.length:0);
  const amastigoteCount=Number(raw)||0;
  const nextStep=r.next_step||r.recommended_next_step||r.nextStep||"Clinical assessment for initiation of CL treatment";
- return{L,M,amastigoteCount,nextStep,parasites:M.parasites_detected??M.present??amastigoteCount>0,sys:r.system_output||r.systemOutput||'—'}}
+ return{L,M,amastigoteCount,nextStep,parasites:Boolean(M.present??M.parasites_detected??amastigoteCount>0),sys:r.system_output||r.systemOutput||'—'}}
 function render(r){lastResult=r;const d=norm(r),L=d.L;
  $('#rid').textContent='Request ID: '+lastId;$('#rImgL').src=urls.lesion||GEN.lesion;$('#rImgM').src=urls.micro||GEN.micro;
  $('#rLes').textContent=L.present?'Present':'Not Detected';
