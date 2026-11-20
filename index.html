@@ -209,34 +209,33 @@ DEFS.forEach(d=>{const box=$('#d-'+d.k),inp=box.querySelector('input');
 function upd(){$('#submit').disabled=!(demo||(files.lesion&&files.micro))}
 upd();
 
-const STEPS=['Uploading clinical & slide images securely','Running 5-fold DenseNet121 lesion ensemble','Running YOLOv8n amastigote detection','Synthesizing dual-modality output'];
-const toB64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
-const api=b=>fetch('/.netlify/functions/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error('Server error '+r.status);return r.json()});
+const STEPS=['Preparing images & loading AI models in your browser','Running 5-fold DenseNet121 lesion ensemble','Running YOLOv8n amastigote detection','Synthesizing dual-modality output'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const scale=(f,max,type,q)=>rd(f).then(u=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);const x=c.getContext('2d');if(type==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(i,0,0,c.width,c.height);res(c.toDataURL(type,q))};i.onerror=rej;i.src=u}));
 const jpeg=(f,m,q)=>scale(f,m,'image/jpeg',q);
-const comp=f=>jpeg(f,512,.82).then(u=>u.split(',')[1]);
 function showSteps(n){$('#steps').innerHTML=STEPS.map((s,i)=>`<li class="step flex items-center gap-2 ${i<n?'done':''} ${i===n?'on':''}"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] ${i<n?'bg-teal-600 text-white':'border border-teal-400'}">${i<n?'✓':i+1}</span>${i+1}. ${s}</li>`).join('')}
-const setP=(pc,st)=>{$('#bar').style.width=pc+'%';$('#pct').textContent=Math.round(pc)+'%';showSteps(st)};
+const setP=(pc,st,note)=>{$('#bar').style.width=pc+'%';$('#pct').textContent=Math.round(pc)+'%'+(note?' · '+note:'');showSteps(st)};
 /* ---------- 100% client-side ONNX inference (onnxruntime-web) ---------- */
 const MODEL_BASE='https://raw.githubusercontent.com/hoooriamiri-hash/leishscan-ai-api/main/onnx_models/';
 const LESION_MODELS=[0,1,2,3,4].map(i=>`best_model_fold${i}.onnx`),YOLO_MODEL='microscopy_best.onnx';
 const LESION_THRESHOLD=0.25,YOLO_CONF=0.25,YOLO_IOU=0.45;
+const ortConfig=()=>{ort.env.wasm.wasmPaths="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";ort.env.wasm.numThreads=1};
 let modelsP=null;
 async function fetchModel(name,onProg){
  const url=MODEL_BASE+name;let cache=null;
  try{cache=await caches.open('leishscan-onnx-v1');const hit=await cache.match(url);if(hit){const b=await hit.arrayBuffer();onProg(b.byteLength,b.byteLength);return b}}catch(e){cache=null}
- const r=await fetch(url);if(!r.ok)throw new Error('Could not download model '+name+' (HTTP '+r.status+')');
+ const stall=()=>new Promise((_,no)=>setTimeout(()=>no(new Error('Download of '+name+' stalled (no data for 30 s). Check your connection or the model URL.')),30000));
+ const r=await Promise.race([fetch(url),stall()]);if(!r.ok)throw new Error('Could not download model '+name+' (HTTP '+r.status+')');
  const total=Number(r.headers.get('content-length'))||0,reader=r.body.getReader(),parts=[];let got=0;
- for(;;){const{done,value}=await reader.read();if(done)break;parts.push(value);got+=value.length;onProg(got,total||got)}
+ for(;;){const{done,value}=await Promise.race([reader.read(),stall()]);if(done)break;parts.push(value);got+=value.length;onProg(got,total||got)}
  const buf=new Uint8Array(got);let o=0;for(const c of parts){buf.set(c,o);o+=c.length}
  try{if(cache)await cache.put(url,new Response(buf.buffer,{headers:{'Content-Type':'application/octet-stream'}}))}catch(e){}
  return buf.buffer}
 function loadModels(onFrac){
  if(modelsP)return modelsP;
  const names=[...LESION_MODELS,YOLO_MODEL],st=names.map(n=>({got:0,tot:n===YOLO_MODEL?13e6:30e6}));
- const upd=()=>onFrac(Math.min(1,st.reduce((a,x)=>a+x.got,0)/st.reduce((a,x)=>a+Math.max(x.tot,x.got),0)));
- modelsP=Promise.all(names.map(async(n,i)=>{const buf=await fetchModel(n,(g,t)=>{st[i].got=g;st[i].tot=t;upd()});return ort.InferenceSession.create(buf,{executionProviders:['wasm'],graphOptimizationLevel:'all'})})).then(all=>({lesion:all.slice(0,5),yolo:all[5]}));
+ const upd=()=>{const g=st.reduce((a,x)=>a+x.got,0),t=st.reduce((a,x)=>a+Math.max(x.tot,x.got),0);onFrac(Math.min(1,g/t),`downloading AI models ${(g/1e6).toFixed(0)} / ${(t/1e6).toFixed(0)} MB`)};
+ modelsP=Promise.all(names.map(async(n,i)=>{const buf=await fetchModel(n,(g,t)=>{st[i].got=g;st[i].tot=t;upd()});ortConfig();return ort.InferenceSession.create(buf,{executionProviders:['wasm'],graphOptimizationLevel:'all'})})).then(all=>({lesion:all.slice(0,5),yolo:all[5]}));
  modelsP.catch(()=>{modelsP=null});
  return modelsP}
 function lesionTensor(bmp){
@@ -265,8 +264,8 @@ function yoloDecode(out,m){
  return keep.map(b=>({x1:rd1(cl((b.x1-m.left)/m.r,m.w)),y1:rd1(cl((b.y1-m.top)/m.r,m.h)),x2:rd1(cl((b.x2-m.left)/m.r,m.w)),y2:rd1(cl((b.y2-m.top)/m.r,m.h)),confidence:Number(b.conf.toFixed(4))}))}
 async function runLocal(){
  if(!window.ort)throw new Error('The AI engine (onnxruntime-web) failed to load. Check your connection and reload the page.');
- ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
- let hi=0;const prog=f=>{hi=Math.max(hi,10+f*50);setP(hi,0)};
+ ortConfig();
+ let hi=0;const prog=(f,note)=>{hi=Math.max(hi,10+f*50);setP(hi,0,note)};
  const[bL,bM]=await Promise.all([createImageBitmap(files.lesion),createImageBitmap(files.micro)]);
  try{
   const M=await loadModels(prog);
