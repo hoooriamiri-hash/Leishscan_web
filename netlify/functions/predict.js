@@ -7,6 +7,7 @@ const json = (code, body) => ({
 });
 
 const MAX_B64 = 1_500_000;
+const MAX_MICRO = 5;
 
 async function uploadToImgBB(b64, name) {
   const cleanB64 = b64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
@@ -40,25 +41,43 @@ exports.handler = async (event) => {
 
   try {
     if (action === "start") {
-      const { lesionBase64, microscopyBase64 } = body;
-      if (!lesionBase64 || !microscopyBase64) return json(400, { error: "Both images required" });
-      if (lesionBase64.length > MAX_B64 || microscopyBase64.length > MAX_B64)
+      const { lesionBase64 } = body;
+
+      // New format: microscopyBase64List (1-5). Old format: single microscopyBase64 string.
+      let microList = Array.isArray(body.microscopyBase64List)
+        ? body.microscopyBase64List
+        : body.microscopyBase64
+        ? [body.microscopyBase64]
+        : [];
+      microList = microList.filter((x) => typeof x === "string" && x.length > 0);
+
+      if (!lesionBase64 || typeof lesionBase64 !== "string")
+        return json(400, { error: "Clinical lesion image required" });
+      if (microList.length < 1) return json(400, { error: "At least 1 microscopy image required" });
+      if (microList.length > MAX_MICRO)
+        return json(400, { error: `Maximum ${MAX_MICRO} microscopy images allowed` });
+      if (lesionBase64.length > MAX_B64 || microList.some((m) => m.length > MAX_B64))
         return json(413, { error: "Image too large" });
 
-      const [lesionUrl, microUrl] = await Promise.all([
+      // Upload lesion + all microscopy fields in parallel
+      const [lesionUrl, ...microUrls] = await Promise.all([
         uploadToImgBB(lesionBase64, `${requestId}-lesion`),
-        uploadToImgBB(microscopyBase64, `${requestId}-micro`),
+        ...microList.map((m, i) => uploadToImgBB(m, `${requestId}-micro${i + 1}`)),
       ]);
 
       const r = await gh(`/actions/workflows/predict.yml/dispatches`, {
         method: "POST",
         body: JSON.stringify({
           ref: "main",
-          inputs: { request_id: requestId, lesion_url: lesionUrl, microscopy_url: microUrl },
+          inputs: {
+            request_id: requestId,
+            lesion_url: lesionUrl,
+            microscopy_urls: JSON.stringify(microUrls),
+          },
         }),
       });
       if (r.status !== 204) return json(502, { error: "Could not trigger analysis" });
-      return json(200, { status: "started", requestId });
+      return json(200, { status: "started", requestId, microscopyCount: microUrls.length });
     }
 
     if (action === "poll") {
