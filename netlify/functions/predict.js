@@ -9,9 +9,9 @@ const json = (code, body) => ({
 const MAX_B64 = 1_500_000;
 
 async function uploadToImgBB(b64, name) {
-  const cleanB64 = b64.replace(/^data:image\/\w+;base64,/, "");
+  const cleanB64 = b64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
   const r = await fetch(
-    `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}&expiration=3600`,
+    `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}&expiration=300`,
     { method: "POST", body: new URLSearchParams({ image: cleanB64, name }) }
   );
   const d = await r.json().catch(() => ({}));

@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--ink:#0f2f30;--mut:#4b6b6b;--aqua:#f2fbfa;--lt2:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a1f20;--card:#10393a;--ink:#e6fffb;--mut:#9ccfc8;--aqua:#0c2b2c;--lt2:#0a1f20}}
@@ -114,7 +115,7 @@ h1,h2,h3,.jk{font-family:'Plus Jakarta Sans',sans-serif}
    <div class="card p-5 !border-2 !border-teal-500"><h3 class="font-bold mb-3">Dual-Modality Synthesis &amp; Clinical Guidance</h3><div class="text-xs uppercase tracking-wide text-teal-700">System Output</div><p id="rSys" class="text-lg font-bold mb-4"></p><div class="text-xs uppercase tracking-wide text-teal-700">Recommended Next Step</div><p id="rNext" class="text-lg font-bold"></p></div>
   </div>
   <div class="mt-6 flex gap-3 items-start rounded-xl bg-amber-50 text-amber-900 border border-amber-300 p-4 text-sm"><i data-lucide="triangle-alert" class="shrink-0"></i>Decision-support tool for research use. Not a substitute for clinical judgement.</div>
-  <div class="mt-6 flex flex-wrap gap-3"><button id="dl" class="btn">Download Report</button><button id="again" class="btn !bg-none !bg-white !text-teal-800 border border-teal-700">Analyze Another Case</button></div>
+  <div class="mt-6 flex flex-wrap gap-3"><button id="dl" class="btn">Download Report</button><button id="again" class="btn !bg-none !bg-white !text-teal-800 border border-teal-700">Analyze Another Case</button></div><div id="dlErr" class="text-red-600 text-sm mt-2"></div>
  </div>
 </section>
 
@@ -225,35 +226,79 @@ $('#submit').onclick=async()=>{
   else{
    const[lesionBase64,microscopyBase64]=await Promise.all([comp(files.lesion),comp(files.micro)]);
    await api({action:'start',lesionBase64,microscopyBase64,requestId:lastId});setP(35,1);
-   const tp=Date.now(),end=tp+75000;
+   const tp=Date.now(),end=tp+120000;
    while(!res){
-    if(Date.now()>end)throw new Error('The analysis is taking longer than expected (75 s). Please try again in a moment.');
+    if(Date.now()>end)throw new Error('The analysis is taking longer than expected (120 s). Please try again in a moment.');
     await sleep(1000);const q=await api({action:'poll',requestId:lastId});
     if(q.status==='completed'){res=q.result||q;break}
     if(q.status==='failed')throw new Error(q.error||'Analysis failed.');
-    const pc=Math.min(95,35+(Date.now()-tp)/1000*1.3);setP(pc,pc<60?1:pc<85?2:3)}}
+    const pc=Math.min(95,35+60*(1-Math.exp(-(Date.now()-tp)/40000)));setP(pc,pc<60?1:pc<85?2:3)}}
   setP(100,4);await sleep(300);render(res)}catch(e){$('#err').textContent=e.message}
  finally{clearInterval(tm);$('#progress').classList.add('hidden');upd()}};
-function render(r){lastResult=r;const L=r.clinical_lesion||{},M=r.microscopy||{};
+function norm(r){
+ const L=r.clinical_lesion||{},M=r.microscopy||r.parasite_detection||{};
+ const raw=M.amastigote_count??M.count??M.amastigotes??M.num_amastigotes??(Array.isArray(M.detections)?M.detections.length:0);
+ const amastigoteCount=Number(raw)||0;
+ const nextStep=r.next_step||r.recommended_next_step||r.nextStep||"Clinical assessment for initiation of CL treatment";
+ return{L,M,amastigoteCount,nextStep,parasites:M.parasites_detected??M.present??amastigoteCount>0,sys:r.system_output||r.systemOutput||'—'}}
+function render(r){lastResult=r;const d=norm(r),L=d.L;
  $('#rid').textContent='Request ID: '+lastId;$('#rImgL').src=urls.lesion||GEN.lesion;$('#rImgM').src=urls.micro||GEN.micro;
- $('#rLes').textContent=L.present?'Present':'Not Detected';$('#rProb').textContent=`${Number(L.probability).toFixed(3)} / ${(L.probability*100).toFixed(1)}% (Threshold: ${L.threshold})`;
- $('#rPar').textContent=M.parasites_detected?'Parasites Detected':'No Parasites Detected';const c=M.amastigote_count||0;$('#rCnt').textContent=`${c} Amastigote${c===1?'':'s'} Detected`;
- $('#rSys').textContent=r.system_output||'—';$('#rNext').textContent=r.recommended_next_step||'—';$('#results').classList.remove('hidden');$('#results').scrollIntoView({behavior:'smooth'})}
+ $('#rLes').textContent=L.present?'Present':'Not Detected';
+ $('#rProb').textContent=`${Number(L.probability).toFixed(3)} / ${(L.probability*100).toFixed(1)}% (Threshold: ${L.threshold})`;
+ $('#rPar').textContent=d.parasites?'Parasites Detected':'No Parasites Detected';
+ $('#rCnt').textContent=`${d.amastigoteCount} Amastigote${d.amastigoteCount===1?'':'s'} Detected`;
+ $('#rSys').textContent=d.sys;$('#rNext').textContent=d.nextStep;
+ $('#results').classList.remove('hidden');$('#results').scrollIntoView({behavior:'smooth'})}
 $('#again').onclick=()=>{DEFS.forEach(d=>$('#d-'+d.k+' .rm').click());$('#results').classList.add('hidden');$('#workspace').scrollIntoView({behavior:'smooth'})};
 const rd=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 $('#dl').onclick=async()=>{
- const r=lastResult,L=r.clinical_lesion||{},M=r.microscopy||{};
- const [iL,iM]=await Promise.all([files.lesion?jpeg(files.lesion,900,.85):GEN.lesion,files.micro?jpeg(files.micro,900,.85):GEN.micro]);
- const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LeishScan AI Report ${esc(lastId)}</title><style>body{font-family:Inter,Arial,sans-serif;margin:0;background:#f2fbfa;color:#0f2f30}header{background:linear-gradient(135deg,#042324,#115e59);color:#fff;padding:28px 40px}main{max-width:960px;margin:24px auto;padding:0 24px}.g{display:grid;grid-template-columns:1fr 1fr;gap:20px}.c{background:#fff;border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(9,54,55,.12);margin-bottom:20px}img{width:100%;height:260px;object-fit:cover;border-radius:10px}h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#0f766e;margin:14px 0 4px}.v{font-size:20px;font-weight:700}.d{border:1px solid #f59e0b;background:#fffbeb;color:#78350f;padding:12px 16px;border-radius:10px}@media(max-width:700px){.g{grid-template-columns:1fr}}</style></head><body><header><h1 style="margin:0">LeishScan AI – Clinical Summary</h1><p style="margin:6px 0 0;opacity:.85">Request ID: ${esc(lastId)} · ${new Date().toLocaleString()}</p></header><main>
-<div class="g"><div class="c"><b>Clinical Lesion Image (Macroscopic)</b><img src="${iL}" alt="Lesion"><h2>Lesion Classification</h2><div class="v">${L.present?'Present':'Not Detected'}</div><h2>Model Probability</h2><div class="v">${Number(L.probability).toFixed(3)} (${(L.probability*100).toFixed(1)}%) · Threshold ${esc(L.threshold)}</div></div>
-<div class="c"><b>Microscopy Image (Giemsa Stain)</b><img src="${iM}" alt="Slide"><h2>Parasite Presence</h2><div class="v">${M.parasites_detected?'Parasites Detected':'No Parasites Detected'}</div><h2>Amastigote Detection Count</h2><div class="v">${esc(M.amastigote_count)}</div></div></div>
-<div class="c"><h2 style="margin-top:0">System Output</h2><div class="v">${esc(r.system_output)}</div><h2>Recommended Next Step</h2><div class="v">${esc(r.recommended_next_step)}</div></div>
-<div class="d"><b>Disclaimer:</b> Decision-support tool for research use. Not a substitute for clinical judgement.</div></main></body></html>`;
- const blob=new Blob([html],{type:'text/html'}),name=`LeishScan-Report-${lastId}.html`;
- const anchorSave=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
- let dls=null;try{dls=window.claude?await claude.use('downloads'):null}catch(e){}
- if(dls){try{await dls.save({filename:name,data:blob})}catch(e){if(!e||e.code!=='declined')anchorSave()}}else anchorSave()
+ const btn=$('#dl'),label=btn.textContent;btn.disabled=true;btn.textContent='Generating PDF…';$('#dlErr').textContent='';const y0=window.scrollY;window.scrollTo({top:0,behavior:'instant'});await sleep(80);
+ try{
+  if(!window.html2pdf)throw new Error('PDF library failed to load. Check your connection and try again.');
+  const d=norm(lastResult),L=d.L,id=esc(lastId),when=new Date().toLocaleString();
+  const crop=(u,w,h)=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=w;c.height=h;const k=Math.max(w/i.width,h/i.height),dw=i.width*k,dh=i.height*k;c.getContext('2d').drawImage(i,(w-dw)/2,(h-dh)/2,dw,dh);ok(c.toDataURL('image/jpeg',.88))};i.onerror=no;i.src=u});
+  const [iL,iM]=await Promise.all([Promise.resolve(files.lesion?jpeg(files.lesion,900,.85):GEN.lesion).then(u=>crop(u,720,480)),Promise.resolve(files.micro?jpeg(files.micro,900,.85):GEN.micro).then(u=>crop(u,720,480))]);
+  const prob=`${Number(L.probability).toFixed(3)} / ${(L.probability*100).toFixed(1)}%`;
+  const cnt=`${d.amastigoteCount} Amastigote${d.amastigoteCount===1?'':'s'} Detected`;
+  const th='padding:8px 10px;border:1px solid #9fcfca;text-align:left',td='padding:8px 10px;border:1px solid #c5e3df;font-size:12px';
+  const wrap=document.createElement('div');wrap.style.cssText='position:fixed;left:-10000px;top:0;width:794px';
+  wrap.innerHTML=`<div id="rp" style="width:794px;height:1118px;box-sizing:border-box;background:#fff;color:#0f2f30;font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#042324,#115e59);color:#fff;padding:24px 34px"><div style="font-size:19px;font-weight:700;line-height:1.3">LeishScan AI — Cutaneous Leishmaniasis Dual-Modality Screening Report</div><div style="font-size:11.5px;color:#a7f3d0;margin-top:5px">AI-Assisted Macroscopic &amp; Giemsa Microscopy Decision-Support System</div></div>
+  <div style="display:flex;justify-content:space-between;background:#f0fdfa;border-bottom:2px solid #0f766e;padding:10px 34px;font-size:12px"><span><b>Case / Request ID:</b> ${id}</span><span><b>Date &amp; Time:</b> ${esc(when)}</span></div>
+  <div style="padding:16px 34px 0;flex:1">
+   <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#0f766e;border-left:4px solid #0f766e;padding-left:8px">SPECIMEN &amp; IMAGING</div>
+   <div style="display:flex;gap:16px;margin-top:10px">
+    <div style="flex:1;border:1px solid #9fcfca;border-radius:6px;padding:8px"><img src="${iL}" style="width:100%;height:auto;display:block;border-radius:4px"><div style="text-align:center;font-size:11px;margin-top:6px;color:#4b6b6b">Clinical Lesion Image (Macroscopic)</div></div>
+    <div style="flex:1;border:1px solid #9fcfca;border-radius:6px;padding:8px"><img src="${iM}" style="width:100%;height:auto;display:block;border-radius:4px"><div style="text-align:center;font-size:11px;margin-top:6px;color:#4b6b6b">Microscopy Image (Giemsa Stain)</div></div></div>
+   <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#0f766e;border-left:4px solid #0f766e;padding-left:8px;margin-top:18px">DIAGNOSTIC FINDINGS</div>
+   <table style="width:100%;border-collapse:collapse;margin-top:10px">
+    <tr style="background:#0f766e;color:#fff;font-size:12px"><th style="${th};width:48%">Parameter</th><th style="${th}">Result</th></tr>
+    <tr><td colspan="2" style="${td};background:#e6f6f4;font-weight:700">Modality 1 — Macroscopic Lesion Analysis (5-Fold DenseNet121)</td></tr>
+    <tr><td style="${td}">Classification</td><td style="${td};font-weight:700">${L.present?'Present':'Not Detected'}</td></tr>
+    <tr><td style="${td}">Probability</td><td style="${td};font-weight:700">${prob}</td></tr>
+    <tr><td style="${td}">Decision Threshold</td><td style="${td}">${esc(L.threshold)}</td></tr>
+    <tr><td colspan="2" style="${td};background:#e6f6f4;font-weight:700">Modality 2 — Parasitological Slide Analysis (YOLOv8n Giemsa)</td></tr>
+    <tr><td style="${td}">Parasite Presence</td><td style="${td};font-weight:700">${d.parasites?'Parasites Detected':'No Parasites Detected'}</td></tr>
+    <tr><td style="${td}">Amastigote Detection Count</td><td style="${td};font-weight:700">${cnt}</td></tr></table>
+   <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#0f766e;border-left:4px solid #0f766e;padding-left:8px;margin-top:18px">CLINICAL SYNTHESIS &amp; GUIDANCE</div>
+   <div style="display:flex;gap:14px;margin-top:10px">
+    <div style="flex:1;background:#ecfdf5;border:1px solid #6ee7b7;border-left:5px solid #0f766e;border-radius:6px;padding:10px 12px"><div style="font-size:10.5px;color:#0f766e;font-weight:700;letter-spacing:.06em">SYSTEM OUTPUT</div><div style="font-size:14.5px;font-weight:700;margin-top:4px;line-height:1.35">${esc(d.sys)}</div></div>
+    <div style="flex:1;background:#ecfdf5;border:1px solid #6ee7b7;border-left:5px solid #0f766e;border-radius:6px;padding:10px 12px"><div style="font-size:10.5px;color:#0f766e;font-weight:700;letter-spacing:.06em">RECOMMENDED NEXT STEP</div><div style="font-size:14.5px;font-weight:700;margin-top:4px;line-height:1.35">${esc(d.nextStep)}</div></div></div>
+   <div style="margin-top:16px;border:1px solid #f59e0b;background:#fffbeb;color:#78350f;border-radius:6px;padding:9px 12px;font-size:11.5px"><b>Medical Disclaimer:</b> Decision-support tool for research use. Not a substitute for clinical judgement.</div>
+   <div style="display:flex;gap:30px;align-items:flex-end;margin-top:22px;font-size:11px;color:#4b6b6b">
+    <div style="flex:1"><div style="border-bottom:1px solid #0f2f30;height:34px"></div><div style="margin-top:4px">Reviewing Clinician / Parasitologist — Signature</div></div>
+    <div style="width:130px"><div style="border:1px dashed #6b8f8b;height:62px;border-radius:4px"></div><div style="margin-top:4px;text-align:center">Stamp</div></div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;border-top:1px solid #9fcfca;padding:9px 34px;font-size:10.5px;color:#4b6b6b"><span>LeishScan AI · For research use only</span><span>Page 1 of 1</span></div></div>`;
+  document.body.appendChild(wrap);
+  const name=`LeishScan-Clinical-Report-${lastId}.pdf`;
+  let blob;try{blob=await html2pdf().set({margin:0,image:{type:'jpeg',quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:794,logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(wrap.firstElementChild).outputPdf('blob')}finally{wrap.remove()}
+  const anchorSave=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
+  let dls=null;try{dls=window.claude?await claude.use('downloads'):null}catch(e){}
+  if(dls){try{await dls.save({filename:name,data:blob})}catch(e){if(!e||e.code!=='declined')anchorSave()}}else anchorSave();
+ }catch(e){$('#dlErr').textContent='PDF could not be generated: '+((e&&e.message)||e)}
+ finally{btn.disabled=false;btn.textContent=label;window.scrollTo({top:y0,behavior:'instant'})}
 };
 
 const MS=[['database','1. Public Datasets','(for training)'],['cpu','2. Model Development','(5-fold DenseNet121 + YOLOv8n)'],['git-merge','3. Integration','(dual-modality)'],['clipboard-check','4. Testing','(Rawalpindi Leprosy Centre)']];
