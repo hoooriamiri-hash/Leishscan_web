@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LeishScan AI – Cutaneous Leishmaniasis Decision Support</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--ink:#0f2f30;--mut:#4b6b6b;--aqua:#f2fbfa;--lt2:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a1f20;--card:#10393a;--ink:#e6fffb;--mut:#9ccfc8;--aqua:#0c2b2c;--lt2:#0a1f20}}
+html{scroll-behavior:smooth;scroll-padding-top:calc(72px + env(safe-area-inset-top,0px))}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--ink)}
+h1,h2,h3,.jk{font-family:'Plus Jakarta Sans',sans-serif}
+.card{background:var(--card);border-radius:1rem;box-shadow:0 20px 40px -12px rgba(9,54,55,.18);border:1px solid rgba(20,184,166,.18)}
+.drop{border:2px dashed #14b8a6}.drop.over{background:var(--aqua)}
+.glass{background:rgba(255,255,255,.1);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.hero{background:radial-gradient(ellipse at 78% 25%,#115e59 0%,#0b4647 45%,#042324 82%)}
+@keyframes driftSlow{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(34px,-26px) rotate(7deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sheen{from{background-position:160% 0}to{background-position:-60% 0}}
+.spin{animation:spin 55s linear infinite}.spin2{animation:spin 80s linear infinite reverse}
+.sheen::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.32) 50%,transparent 60%);background-size:260% 100%;animation:sheen 5.5s ease-in-out infinite}
+.lt{background:linear-gradient(180deg,var(--aqua),var(--lt2))}.lt>.max-w-7xl{position:relative;z-index:1}
+.btn{background:linear-gradient(180deg,#14877f,#0b4d49);color:#fff;border-radius:999px;padding:.8rem 1.9rem;font-weight:600;box-shadow:0 8px 24px rgba(20,184,166,.35),inset 0 1px 0 rgba(255,255,255,.3);transition:.2s}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 32px rgba(20,184,166,.5)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.hdr{background:#093637;padding-top:env(safe-area-inset-top,0px)}
+.eyebrow{display:inline-block;font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#0f766e;background:rgba(20,184,166,.12);border-radius:999px;padding:.3rem .8rem}
+.scr{font-family:'Great Vibes',cursive;color:#0f9a8e}
+.bok{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(94,234,212,.45),rgba(94,234,212,0) 70%);animation:fl 9s ease-in-out infinite}
+@keyframes fl{50%{transform:translateY(-22px)}}
+.fl1{animation:fl 7s ease-in-out infinite}.fl2{animation:fl 8s ease-in-out infinite reverse}
+.step.done{color:#0f766e}.step.on{font-weight:600}
+#report{display:none}
+@media print{body>*:not(#report){display:none!important}#report{display:block!important;color:#000;padding:24px}#report img{max-height:220px}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<linearGradient id="mt" x1="0" x2="1"><stop offset="0" stop-color="#52636a"/><stop offset=".3" stop-color="#f1f7f9"/><stop offset=".6" stop-color="#9db0b6"/><stop offset="1" stop-color="#3f4e53"/></linearGradient>
+<linearGradient id="mb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a8a85"/><stop offset=".5" stop-color="#0f5551"/><stop offset="1" stop-color="#06302f"/></linearGradient>
+<radialGradient id="ml" cx=".35" cy=".3"><stop offset="0" stop-color="#fff"/><stop offset=".4" stop-color="#7dd3fc"/><stop offset="1" stop-color="#0c3b5c"/></radialGradient>
+<radialGradient id="mk" cx=".35" cy=".3"><stop offset="0" stop-color="#fafdfe"/><stop offset=".6" stop-color="#8fa5ab"/><stop offset="1" stop-color="#33434a"/></radialGradient>
+<filter id="msh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#021a1a" flood-opacity=".45"/></filter>
+<symbol id="micro" viewBox="0 0 200 260"><g filter="url(#msh)">
+<path d="M34 236h132a10 10 0 0 1 10 10v8H24v-8a10 10 0 0 1 10-10z" fill="url(#mb)"/>
+<path d="M150 238C196 222 202 118 140 66l-20 18c36 40 28 108 4 154z" fill="url(#mb)"/>
+<path d="M146 90c12 30 10 70-4 110" stroke="#7ff0e0" stroke-opacity=".5" stroke-width="2" fill="none"/>
+<ellipse cx="96" cy="212" rx="24" ry="7" fill="url(#mt)"/><ellipse cx="96" cy="208" rx="12" ry="3" fill="#fff8d0"/>
+<rect x="56" y="172" width="86" height="9" rx="3" fill="url(#mt)"/><rect x="66" y="166" width="10" height="7" rx="1" fill="#6e8087"/><rect x="118" y="166" width="10" height="7" rx="1" fill="#6e8087"/><rect x="72" y="168" width="52" height="4" fill="#cdeef7" fill-opacity=".8"/>
+<path d="M112 64l36 12-6 20-34-10z" fill="url(#mb)"/>
+<g transform="rotate(12 100 90)"><rect x="84" y="28" width="30" height="98" rx="7" fill="url(#mt)"/><rect x="88" y="14" width="22" height="18" rx="4" fill="url(#mb)"/><ellipse cx="99" cy="14" rx="9" ry="3.5" fill="url(#ml)"/>
+<circle cx="99" cy="128" r="16" fill="url(#mb)"/><rect x="92" y="132" width="13" height="28" rx="3" fill="url(#mt)"/><ellipse cx="98.5" cy="161" rx="6.5" ry="3" fill="url(#ml)"/><rect x="108" y="130" width="8" height="18" rx="2" fill="url(#mt)" transform="rotate(25 112 130)"/></g>
+<circle cx="150" cy="168" r="15" fill="url(#mk)"/><circle cx="150" cy="168" r="6" fill="url(#mb)"/><circle cx="150" cy="168" r="15" fill="none" stroke="#fff" stroke-opacity=".5"/>
+</g></symbol></defs></svg>
+
+<header class="hdr sticky top-0 z-30 text-white">
+ <div class="max-w-7xl mx-auto px-6 lg:px-12 h-[68px] flex items-center justify-between gap-3">
+  <a href="#home" class="flex items-center gap-2"><svg width="34" height="34" viewBox="0 0 200 260"><use href="#micro" width="200" height="260"/></svg>
+   <div class="leading-tight"><div class="jk font-extrabold">LeishScan AI</div><div class="text-[10px] text-teal-200">Detect • Differentiate • Diagnose</div></div></a>
+  <nav class="hidden lg:flex gap-6 text-sm text-teal-100"><a href="#home">Home</a><a href="#about">About</a><a href="#method">Methodology</a><a href="#gap">The Gap</a><a href="#thanks">Recognition</a><a href="#impact">Impact</a></nav>
+  <div class="flex items-center gap-2"><a href="#workspace" class="btn !py-2 !px-5 text-sm hidden sm:inline-block">Start Screening</a></div>
+ </div>
+</header>
+
+<section id="home" class="hero text-white relative overflow-hidden">
+ <div id="bokeh" class="absolute inset-0 pointer-events-none"></div>
+ <div class="absolute top-24 -left-20 w-[460px] h-[460px] rounded-full bg-[#2dd4bf]/20 blur-3xl"></div><div class="absolute bottom-24 right-1/4 w-[380px] h-[380px] rounded-full bg-[#2dd4bf]/15 blur-3xl"></div>
+ <div class="absolute -top-20 right-10 w-[480px] h-[480px] rounded-full bg-cyan-400/20 blur-3xl"></div>
+ <svg class="absolute bottom-0 inset-x-0 w-full h-72" viewBox="0 0 1440 300" preserveAspectRatio="none"><path d="M0 170C240 90 420 250 720 170S1200 80 1440 180V300H0Z" fill="#0d4f4f" opacity=".55"/><path d="M0 220C300 140 520 280 820 210S1250 150 1440 230V300H0Z" fill="#14b8a6" opacity=".18"/><path d="M0 250C260 200 560 300 900 250S1300 220 1440 260V300H0Z" fill="#062c2d" opacity=".7"/></svg>
+ <div class="max-w-7xl mx-auto px-6 lg:px-12 pt-20 pb-12 grid lg:grid-cols-2 gap-12 items-center relative">
+  <div>
+   <span class="glass inline-block rounded-full px-4 py-1.5 text-sm text-teal-100">AI for Better Healthcare •</span>
+   <h1 class="text-4xl md:text-6xl font-extrabold leading-[1.08] mt-5">AI-Powered Decision Support for Cutaneous Leishmaniasis</h1>
+   <p class="mt-5 text-lg text-teal-100 max-w-xl">Combining macroscopic lesion analysis and microscopic slide examination for faster, more accurate triage.</p>
+   <div class="mt-8 flex flex-wrap items-center gap-4"><a href="#workspace" class="btn">Start Analysis →</a><a href="#about" class="glass rounded-full px-7 py-3 font-semibold">Learn More</a></div>
+  </div>
+  <div class="relative h-[360px] md:h-[440px]">
+   <svg class="spin absolute inset-0 w-full h-full" viewBox="0 0 500 440" fill="none"><g transform="rotate(-18 250 220)"><ellipse cx="250" cy="220" rx="215" ry="150" stroke="#5eead4" stroke-opacity=".55" stroke-dasharray="3 7"/><circle cx="465" cy="220" r="5" fill="#5eead4"/></g></svg><svg class="spin2 absolute inset-0 w-full h-full" viewBox="0 0 500 440" fill="none"><g transform="rotate(24 250 220)"><ellipse cx="250" cy="220" rx="170" ry="110" stroke="#5eead4" stroke-opacity=".35"/><circle cx="80" cy="220" r="4" fill="#99f6e4"/></g></svg>
+   <span class="absolute left-[18%] top-[60%] w-3 h-3 rounded-full bg-teal-300 animate-ping"></span><span class="absolute right-[12%] top-[30%] w-3 h-3 rounded-full bg-cyan-300 animate-ping"></span>
+   <div class="sheen fl1 absolute left-0 top-2 w-[58%] aspect-square glass rounded-[2rem] p-2.5 rotate-[-5deg]"><img data-gen="lesion" class="w-full h-full object-cover rounded-[1.6rem]" alt="Clinical lesion"><span class="absolute bottom-5 left-5 text-xs bg-black/50 backdrop-blur rounded-full px-3 py-1">Clinical Lesion</span></div>
+   <div class="sheen fl2 absolute right-0 bottom-0 w-[58%] aspect-square glass rounded-[2rem] p-2.5 rotate-[5deg]"><img data-gen="micro" class="w-full h-full object-cover rounded-[1.6rem]" alt="Giemsa microscopy"><span class="absolute bottom-5 left-5 text-xs bg-black/50 backdrop-blur rounded-full px-3 py-1">Giemsa Microscopy</span></div>
+  </div>
+ </div>
+ <div class="max-w-7xl mx-auto px-6 lg:px-12 pb-10 relative"><div class="glass rounded-2xl p-5 grid sm:grid-cols-3 gap-5 text-sm">
+  <div class="flex items-center gap-3"><i data-lucide="microscope"></i><div><b>Dual-Modality Analysis</b><div class="text-teal-200 text-xs">Lesion + slide, together</div></div></div>
+  <div class="flex items-center gap-3"><i data-lucide="zap"></i><div><b>AI-Powered Insights</b><div class="text-teal-200 text-xs">Ensemble deep learning</div></div></div>
+  <div class="flex items-center gap-3"><i data-lucide="shield-check"></i><div><b>Support for Better Care</b><div class="text-teal-200 text-xs">Faster, safer triage</div></div></div>
+ </div></div>
+</section>
+
+<section id="workspace" class="lt py-20 relative overflow-hidden">
+ <svg class="absolute top-0 inset-x-0 w-full h-40" viewBox="0 0 1440 160" preserveAspectRatio="none"><path d="M0 0H1440V60C1100 150 700 20 0 110Z" fill="#14b8a6" opacity=".14"/></svg>
+ <svg class="absolute right-0 bottom-0 w-64 xl:w-80 opacity-90 hidden lg:block" viewBox="0 0 200 260"><use href="#micro" width="200" height="260"/></svg>
+ <div class="max-w-7xl mx-auto px-6 lg:px-12 relative">
+  <h2 class="text-4xl font-extrabold text-center">Analyze a Lesion</h2>
+  <p class="text-center text-[color:var(--mut)] mt-2">Upload both the skin lesion image and Giemsa-stained microscopy slide for AI-powered analysis</p>
+  <div class="grid md:grid-cols-2 gap-8 mt-10 max-w-5xl mx-auto" id="drops"></div>
+  <div class="text-center mt-10"><button id="submit" class="btn text-lg !px-12" disabled>Submit for Analysis →</button><div id="err" class="text-red-600 text-sm mt-3"></div></div>
+  <div id="progress" class="card p-6 mt-8 hidden max-w-xl mx-auto"><div class="flex justify-between mb-4"><b>Processing case</b><span id="timer" class="text-sm text-[color:var(--mut)]">0s</span></div><div class="h-2.5 rounded-full bg-teal-100 overflow-hidden"><div id="bar" class="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-700 transition-all duration-700" style="width:0"></div></div><div id="pct" class="text-xs text-[color:var(--mut)] mt-1 mb-4 text-right">0%</div><ol id="steps" class="space-y-3 text-sm"></ol></div>
+ </div>
+</section>
+
+<section id="results" class="hidden py-16 bg-[color:var(--aqua)]">
+ <div class="max-w-7xl mx-auto px-6 lg:px-12">
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+   <span class="w-11 h-11 rounded-full bg-emerald-500 text-white grid place-items-center shadow-lg"><i data-lucide="check"></i></span>
+   <div><h2 class="text-2xl font-extrabold">Analysis Complete!</h2><p class="text-sm text-[color:var(--mut)]">Here are the results for your case</p></div>
+   <span id="rid" class="ml-auto text-xs bg-teal-700 text-white rounded-full px-3 py-1"></span></div>
+  <div class="grid md:grid-cols-3 gap-6">
+   <div class="card p-5"><h3 class="font-bold mb-3">Clinical Image Analysis (Macroscopic)</h3><img id="rImgL" class="rounded-xl w-full h-52 object-cover" alt="Uploaded lesion"><div class="mt-4 text-sm"><div class="text-[color:var(--mut)]">Lesion Classification</div><div id="rLes" class="text-xl font-bold"></div><div class="mt-2 text-[color:var(--mut)]">Model Probability</div><div id="rProb" class="font-semibold"></div></div></div>
+   <div class="card p-5"><h3 class="font-bold mb-3">Microscopy Analysis (Giemsa Stain)</h3><img id="rImgM" class="rounded-xl w-full h-52 object-cover" alt="Uploaded slide"><div class="mt-4 text-sm"><div class="text-[color:var(--mut)]">Parasite Presence</div><div id="rPar" class="text-xl font-bold"></div><div class="mt-2 text-[color:var(--mut)]">Amastigote Detection Count</div><div id="rCnt" class="font-semibold"></div></div></div>
+   <div class="card p-5 !border-2 !border-teal-500"><h3 class="font-bold mb-3">Dual-Modality Synthesis &amp; Clinical Guidance</h3><div class="text-xs uppercase tracking-wide text-teal-700">System Output</div><p id="rSys" class="text-lg font-bold mb-4"></p><div class="text-xs uppercase tracking-wide text-teal-700">Recommended Next Step</div><p id="rNext" class="text-lg font-bold"></p></div>
+  </div>
+  <div class="mt-6 flex gap-3 items-start rounded-xl bg-amber-50 text-amber-900 border border-amber-300 p-4 text-sm"><i data-lucide="triangle-alert" class="shrink-0"></i>Decision-support tool for research use. Not a substitute for clinical judgement.</div>
+  <div class="mt-6 flex flex-wrap gap-3"><button id="dl" class="btn">Download Report</button><button id="again" class="btn !bg-none !bg-white !text-teal-800 border border-teal-700">Analyze Another Case</button></div>
+ </div>
+</section>
+
+<section id="about" class="lt py-24 relative overflow-hidden">
+ <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1440 600" preserveAspectRatio="none"><path d="M700 0C900 120 1000 300 1440 260V600H520C760 480 560 200 700 0Z" fill="#14b8a6" opacity=".1"/></svg>
+ <div class="max-w-7xl mx-auto px-6 lg:px-12 grid lg:grid-cols-2 gap-14 items-center relative">
+  <div><span class="eyebrow">About LeishScan AI •</span><h2 class="text-4xl font-extrabold mt-4 leading-tight">An AI-Based Dual-Modality Decision Support System</h2>
+   <p class="mt-5 text-[color:var(--mut)] text-lg">LeishScan AI pairs macroscopic lesion imaging with Giemsa-stained microscopy, giving frontline clinicians both visual and parasitological evidence for triaging suspected cutaneous leishmaniasis, even where specialist expertise is scarce.</p>
+   <a href="#method" class="btn inline-block mt-7">Our Mission →</a></div>
+  <div class="relative h-[420px]"><div class="absolute right-0 top-4 w-[330px] h-[330px] md:w-[380px] md:h-[380px] rounded-full p-3 bg-gradient-to-br from-white via-slate-300 to-slate-500 shadow-2xl"><div class="w-full h-full rounded-full overflow-hidden ring-8 ring-teal-700/80 relative"><img data-gen="micro" class="w-full h-full object-cover scale-125" alt="Giemsa slide"><div class="absolute inset-0 rounded-full" style="background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.4),transparent 40%)"></div></div></div>
+   <svg class="absolute left-0 bottom-0 w-60 md:w-72" viewBox="0 0 200 260"><use href="#micro" width="200" height="260"/></svg></div>
+ </div>
+</section>
+
+<section id="method" class="lt py-24"><div class="max-w-7xl mx-auto px-6 lg:px-12 grid lg:grid-cols-[1fr_2.2fr] gap-12 items-center">
+ <div><span class="eyebrow">Our Methodology</span><h2 class="text-4xl font-extrabold mt-4">From Data to Decision</h2><p class="mt-4 text-[color:var(--mut)] text-lg">A structured research pipeline to build and validate LeishScan AI.</p></div>
+ <div id="mSteps" class="grid sm:grid-cols-4 gap-3 items-stretch"></div>
+</div></section>
+
+<section id="gap" class="lt py-24"><div class="max-w-7xl mx-auto px-6 lg:px-12 grid lg:grid-cols-2 gap-8">
+ <div class="card p-8 grid sm:grid-cols-[1.6fr_1fr] gap-6 items-center"><div><span class="eyebrow">The Gap</span><h2 class="text-3xl font-extrabold mt-3">A Missing Link in Current Research</h2><p class="mt-3 text-[color:var(--mut)]">Existing tools rely on single-modality inspection rather than combined clinical and microscopic detection, so lesions that merely resemble leishmaniasis can trigger false positives.</p>
+  <div class="mt-4 rounded-xl bg-teal-50 text-teal-900 border border-teal-200 p-4 text-sm"><b>Our Contribution:</b> a dual-modality AND-gate that requires both lesion and parasite evidence.</div></div>
+  <svg viewBox="0 0 160 150" class="w-40 mx-auto drop-shadow-2xl"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset=".5" stop-color="#0f766e"/><stop offset="1" stop-color="#063a38"/></linearGradient></defs><path d="M80 8 150 135H10Z" fill="url(#tg)" stroke="#a7f3d0" stroke-width="3" stroke-linejoin="round"/><path d="M80 22 38 120" stroke="#fff" stroke-opacity=".35" stroke-width="3"/><rect x="76" y="56" width="8" height="40" rx="4" fill="#fff"/><circle cx="80" cy="110" r="5" fill="#fff"/><text x="80" y="146" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">The Gap</text></svg></div>
+ <div id="thanks" class="card p-8 grid sm:grid-cols-[1.6fr_1fr] gap-6 items-center"><div><span class="eyebrow">Acknowledgments •</span><h2 class="text-3xl font-extrabold mt-3">With Gratitude</h2><p class="mt-3 text-[color:var(--mut)]">We extend our sincere appreciation to:</p>
+  <ul class="mt-3 space-y-2 text-sm"><li><b>Prof. Dr. Abdul Qadir Ansari</b> <span class="text-[color:var(--mut)]">(Project Supervisor)</span></li><li><b>Dr. Bushra Nadeem</b> <span class="text-[color:var(--mut)]">(Co-Supervisor)</span></li><li><b>Dr. Tooba Hashmi</b> <span class="text-[color:var(--mut)]">(Co-Supervisor)</span></li></ul></div>
+  <div class="text-center"><div class="scr text-6xl leading-none -rotate-6">Thank You!</div><svg class="mx-auto mt-2" width="90" height="14" viewBox="0 0 90 14"><path d="M2 10C20 0 40 14 60 5s24-2 28 2" stroke="#14b8a6" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div></div>
+</div></section>
+
+<section id="impact" class="lt py-24"><div class="max-w-7xl mx-auto px-6 lg:px-12 grid lg:grid-cols-[1.7fr_1fr] gap-10 items-center">
+ <div><span class="eyebrow">Research &amp; Impact •</span><h2 class="text-4xl font-extrabold mt-4">Ethical Research for a Healthier Tomorrow</h2><p class="mt-4 text-[color:var(--mut)] text-lg">This project was conducted under institutional ethical approval (MUET IRB) and contributes to:</p>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-7 text-white">
+   <div class="aspect-square rounded-xl p-3 flex flex-col justify-between shadow-lg" style="background:#4c9f38"><b class="text-2xl jk">3</b><span class="sdgi" data-sdg="3"><svg viewBox="0 0 48 48" class="w-12 h-12 mx-auto" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 41C10 31 6 23 6 17a9 9 0 0 1 18-2 9 9 0 0 1 18 2c0 6-4 14-18 24z"/><path d="M10 25h9l3-7 5 12 3-5h8"/></svg></span><span class="text-xs font-semibold">GOOD HEALTH &amp; WELL-BEING</span></div>
+   <div class="aspect-square rounded-xl p-3 flex flex-col justify-between shadow-lg" style="background:#f36d25"><b class="text-2xl jk">9</b><span class="sdgi" data-sdg="9"><svg viewBox="0 0 48 48" class="w-12 h-12 mx-auto" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 31 8V16L24 20 17 16V8ZM17 8l7 4 7-4M24 12v8M15 19l7 4v8l-7 4-7-4v-8ZM8 23l7 4 7-4M15 27v8M33 19l7 4v8l-7 4-7-4v-8ZM26 23l7 4 7-4M33 27v8"/></svg></span><span class="text-xs font-semibold">INDUSTRY, INNOVATION &amp; INFRASTRUCTURE</span></div>
+   <div class="aspect-square rounded-xl p-3 flex flex-col justify-between shadow-lg" style="background:#dd1367"><b class="text-2xl jk">10</b><span class="sdgi" data-sdg="10"><svg viewBox="0 0 48 48" class="w-12 h-12 mx-auto" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 19h12M18 29h12M4 24h9M9 19l-5 5 5 5M44 24h-9M39 19l5 5-5 5"/></svg></span><span class="text-xs font-semibold">REDUCED INEQUALITIES</span></div>
+   <div class="aspect-square rounded-xl p-3 flex flex-col justify-between shadow-lg" style="background:#19486a"><b class="text-2xl jk">17</b><span class="sdgi" data-sdg="17"><svg viewBox="0 0 48 48" class="w-12 h-12 mx-auto" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="13" r="7"/><circle cx="34.5" cy="20.6" r="7"/><circle cx="30.5" cy="33" r="7"/><circle cx="17.5" cy="33" r="7"/><circle cx="13.5" cy="20.6" r="7"/></svg></span><span class="text-xs font-semibold">PARTNERSHIPS FOR THE GOALS</span></div></div></div>
+ <div class="text-center"><svg viewBox="0 0 160 180" class="w-48 mx-auto drop-shadow-2xl"><path d="M80 6 148 30V92C148 134 116 160 80 174 44 160 12 134 12 92V30Z" fill="url(#tg)" stroke="#a7f3d0" stroke-width="3"/><path d="m50 90 22 22 40-46" stroke="#fff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="jk font-bold mt-3">IRB Approved — MUET</div></div>
+</div></section>
+
+<footer class="hdr text-teal-100 text-sm py-10"><div class="max-w-7xl mx-auto px-6 lg:px-12 flex flex-wrap justify-between gap-4"><div>© 2026 LeishScan AI. Decision-support tool for research use. Not a substitute for clinical judgement.</div><div class="flex gap-5"><a href="#home">Home</a><a href="#workspace">Screening</a><a href="#method">Methodology</a><a href="#impact">Impact</a></div></div></footer>
+<div id="report"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+/* ---------- procedural medical imagery ---------- */
+let seed=11;const R=()=>(seed=(seed*16807)%2147483647)/2147483647;
+function cv(n){const c=document.createElement('canvas');c.width=c.height=n;return[c,c.getContext('2d')]}
+function vig(x,n,a){const g=x.createRadialGradient(n/2,n/2,n*.3,n/2,n/2,n*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${a})`);x.fillStyle=g;x.fillRect(0,0,n,n)}
+function genLesion(n=520){seed=11;const[c,x]=cv(n);
+ let g=x.createLinearGradient(0,0,n,n);g.addColorStop(0,'#dcab88');g.addColorStop(1,'#bf8466');x.fillStyle=g;x.fillRect(0,0,n,n);
+ for(let i=0;i<14000;i++){x.fillStyle=R()<.5?'rgba(110,64,44,.07)':'rgba(255,225,195,.07)';x.beginPath();x.arc(R()*n,R()*n,.5+R()*1.6,0,7);x.fill()}
+ g=x.createRadialGradient(n/2,n/2,0,n/2,n/2,n*.46);g.addColorStop(0,'rgba(190,55,48,.75)');g.addColorStop(.6,'rgba(200,80,70,.35)');g.addColorStop(1,'rgba(200,80,70,0)');x.fillStyle=g;x.fillRect(0,0,n,n);
+ x.save();x.shadowColor='rgba(60,10,10,.55)';x.shadowBlur=30;x.shadowOffsetY=12;
+ g=x.createRadialGradient(n*.45,n*.42,10,n/2,n/2,n*.22);g.addColorStop(0,'#e46a5a');g.addColorStop(.6,'#b03530');g.addColorStop(1,'#82211f');x.fillStyle=g;x.beginPath();x.ellipse(n/2,n/2,n*.21,n*.18,.3,0,7);x.fill();x.restore();
+ g=x.createRadialGradient(n/2,n/2,5,n/2,n/2,n*.12);g.addColorStop(0,'#2f0d0c');g.addColorStop(.7,'#6e1f1b');g.addColorStop(1,'#9a3028');x.fillStyle=g;x.beginPath();x.ellipse(n*.51,n*.52,n*.1,n*.075,.5,0,7);x.fill();
+ for(let i=0;i<260;i++){const a=R()*6.28,r=R()*n*.08;x.fillStyle=`rgba(${30+R()*40},12,10,.5)`;x.beginPath();x.arc(n*.51+Math.cos(a)*r,n*.52+Math.sin(a)*r*.75,1+R()*2.5,0,7);x.fill()}
+ x.strokeStyle='rgba(235,120,105,.5)';x.lineWidth=4;x.beginPath();x.ellipse(n/2,n/2,n*.21,n*.18,.3,0,7);x.stroke();
+ g=x.createRadialGradient(n*.42,n*.4,0,n*.42,n*.4,n*.09);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,n,n);
+ vig(x,n,.4);return c.toDataURL('image/jpeg',.92)}
+function genGiemsa(n=520){seed=23;const[c,x]=cv(n);
+ let g=x.createRadialGradient(n/2,n/2,0,n/2,n/2,n*.75);g.addColorStop(0,'#f2deef');g.addColorStop(1,'#dcb9dc');x.fillStyle=g;x.fillRect(0,0,n,n);
+ for(let i=0;i<110;i++){const px=R()*n,py=R()*n,r=13+R()*8;g=x.createRadialGradient(px,py,r*.2,px,py,r);g.addColorStop(0,'rgba(245,200,215,.35)');g.addColorStop(.8,'rgba(225,150,180,.65)');g.addColorStop(1,'rgba(200,110,150,.7)');x.fillStyle=g;x.beginPath();x.arc(px,py,r,0,7);x.fill()}
+ const cell=(px,py,r)=>{g=x.createRadialGradient(px,py,r*.1,px,py,r);g.addColorStop(0,'#c694d6');g.addColorStop(.7,'#9a5bb8');g.addColorStop(1,'#7a3a9c');x.fillStyle=g;x.beginPath();x.ellipse(px,py,r,r*(.85+R()*.15),R()*3,0,7);x.fill();
+  x.fillStyle='#45186f';x.beginPath();x.ellipse(px-r*.25,py-r*.1,r*.4,r*.33,R()*3,0,7);x.fill();
+  for(let k=0;k<6+R()*12;k++){const a=R()*6.28,d=R()*r*.8;if(Math.hypot(Math.cos(a)*d+r*.25,Math.sin(a)*d+r*.1)<r*.45)continue;const ax=px+Math.cos(a)*d,ay=py+Math.sin(a)*d;x.fillStyle='rgba(240,225,250,.7)';x.beginPath();x.arc(ax,ay,4.2,0,7);x.fill();x.fillStyle='#6a24a0';x.beginPath();x.ellipse(ax,ay,3,2.4,a,0,7);x.fill();x.fillStyle='#1c0838';x.beginPath();x.arc(ax+1.8,ay,1.1,0,7);x.fill()}};
+ for(let i=0;i<7;i++)cell(70+R()*(n-140),70+R()*(n-140),34+R()*20);
+ for(let i=0;i<5;i++){const px=40+R()*(n-80),py=40+R()*(n-80);x.fillStyle='#3a1566';for(let l=0;l<3;l++){x.beginPath();x.arc(px+l*13-13,py+(l%2)*9,10,0,7);x.fill()}}
+ for(let i=0;i<9000;i++){x.fillStyle=`rgba(80,30,110,${R()*.05})`;x.fillRect(R()*n,R()*n,1.5,1.5)}
+ vig(x,n,.35);return c.toDataURL('image/jpeg',.92)}
+const GEN={lesion:genLesion(),micro:genGiemsa()};
+document.querySelectorAll('[data-gen]').forEach(i=>i.src=GEN[i.dataset.gen]);
+$('#bokeh').innerHTML=Array.from({length:14},()=>{const s=20+Math.random()*80;return`<span class="bok" style="width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${Math.random()*80}%;animation-delay:-${Math.random()*8}s;opacity:${.25+Math.random()*.5}"></span>`}).join('');
+
+/* ---------- app logic ---------- */
+const files={lesion:null,micro:null},urls={lesion:null,micro:null};const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v);return true}catch(e){return false}}};
+const SS={get:k=>{try{return sessionStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}}};
+let demo=LS.get('ls_demo')==='1',lastResult=null,lastId='';
+const SAMPLE_RESULT={clinical_lesion:{present:true,probability:0.476,threshold:0.25},microscopy:{parasites_detected:true,amastigote_count:1},system_output:'Suspected CL; parasites demonstrated',recommended_next_step:'Clinical assessment for initiation of CL treatment'};
+const DEFS=[{k:'lesion',t:'Clinical Lesion Image (Macroscopic)'},{k:'micro',t:'Microscopy Image (Giemsa Stain)'}];
+$('#drops').innerHTML=DEFS.map(d=>`<div class="card drop p-7 text-center" id="d-${d.k}">
+ <h3 class="font-bold">${d.t}</h3>
+ <div class="empty"><img src="${GEN[d.k]}" class="mx-auto mt-4 w-36 h-36 rounded-full object-cover ring-4 ring-teal-100 shadow-xl" alt="Example"><p class="text-xs text-[color:var(--mut)] mt-1">Example image</p><p class="text-sm text-[color:var(--mut)] mt-3">Drag &amp; drop or <label class="text-teal-600 underline cursor-pointer">browse<input type="file" accept="image/jpeg,image/png" class="hidden"></label> (JPG, PNG)</p></div>
+ <div class="pv hidden mt-4"><img class="rounded-xl w-full h-52 object-cover" alt="Preview"><div class="flex justify-between items-center mt-3 text-xs"><span class="fn bg-teal-100 text-teal-800 rounded-full px-3 py-1 truncate max-w-[60%]"></span><button class="rm text-red-600 underline">Remove / Replace</button></div></div></div>`).join('');
+DEFS.forEach(d=>{const box=$('#d-'+d.k),inp=box.querySelector('input');
+ const set=f=>{if(!f||!/^image\/(jpeg|png)$/.test(f.type)){$('#err').textContent='Please choose a JPG or PNG image.';return}
+  $('#err').textContent='';if(urls[d.k])URL.revokeObjectURL(urls[d.k]);files[d.k]=f;urls[d.k]=URL.createObjectURL(f);
+  box.querySelector('.pv img').src=urls[d.k];box.querySelector('.fn').textContent=f.name;box.querySelector('.pv').classList.remove('hidden');box.querySelector('.empty').classList.add('hidden');upd()};
+ inp.onchange=()=>set(inp.files[0]);box.ondragover=e=>{e.preventDefault();box.classList.add('over')};box.ondragleave=()=>box.classList.remove('over');
+ box.ondrop=e=>{e.preventDefault();box.classList.remove('over');set(e.dataTransfer.files[0])};
+ box.querySelector('.rm').onclick=()=>{if(urls[d.k])URL.revokeObjectURL(urls[d.k]);files[d.k]=urls[d.k]=null;inp.value='';box.querySelector('.pv').classList.add('hidden');box.querySelector('.empty').classList.remove('hidden');upd()}});
+function upd(){$('#submit').disabled=!(demo||(files.lesion&&files.micro))}
+upd();
+
+const STEPS=['Uploading clinical & slide images securely','Running 5-fold DenseNet121 lesion ensemble','Running YOLOv8n amastigote detection','Synthesizing dual-modality output'];
+const toB64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
+const api=b=>fetch('/.netlify/functions/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error('Server error '+r.status);return r.json()});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const scale=(f,max,type,q)=>rd(f).then(u=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);const x=c.getContext('2d');if(type==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(i,0,0,c.width,c.height);res(c.toDataURL(type,q))};i.onerror=rej;i.src=u}));
+const jpeg=(f,m,q)=>scale(f,m,'image/jpeg',q);
+const comp=f=>jpeg(f,512,.82).then(u=>u.split(',')[1]);
+function showSteps(n){$('#steps').innerHTML=STEPS.map((s,i)=>`<li class="step flex items-center gap-2 ${i<n?'done':''} ${i===n?'on':''}"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] ${i<n?'bg-teal-600 text-white':'border border-teal-400'}">${i<n?'✓':i+1}</span>${i+1}. ${s}</li>`).join('')}
+const setP=(pc,st)=>{$('#bar').style.width=pc+'%';$('#pct').textContent=Math.round(pc)+'%';showSteps(st)};
+$('#submit').onclick=async()=>{
+ $('#err').textContent='';$('#submit').disabled=true;$('#results').classList.add('hidden');$('#progress').classList.remove('hidden');setP(10,0);
+ const t0=Date.now(),tm=setInterval(()=>$('#timer').textContent=Math.round((Date.now()-t0)/1000)+'s',500);
+ lastId='REQ-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+ try{let res;
+  if(demo){for(const[pc,st]of[[35,1],[70,2],[95,3]]){await sleep(650);setP(pc,st)}await sleep(450);res=SAMPLE_RESULT}
+  else{
+   const[lesionBase64,microscopyBase64]=await Promise.all([comp(files.lesion),comp(files.micro)]);
+   await api({action:'start',lesionBase64,microscopyBase64,requestId:lastId});setP(35,1);
+   const tp=Date.now(),end=tp+75000;
+   while(!res){
+    if(Date.now()>end)throw new Error('The analysis is taking longer than expected (75 s). Please try again in a moment.');
+    await sleep(1000);const q=await api({action:'poll',requestId:lastId});
+    if(q.status==='completed'){res=q.result||q;break}
+    if(q.status==='failed')throw new Error(q.error||'Analysis failed.');
+    const pc=Math.min(95,35+(Date.now()-tp)/1000*1.3);setP(pc,pc<60?1:pc<85?2:3)}}
+  setP(100,4);await sleep(300);render(res)}catch(e){$('#err').textContent=e.message}
+ finally{clearInterval(tm);$('#progress').classList.add('hidden');upd()}};
+function render(r){lastResult=r;const L=r.clinical_lesion||{},M=r.microscopy||{};
+ $('#rid').textContent='Request ID: '+lastId;$('#rImgL').src=urls.lesion||GEN.lesion;$('#rImgM').src=urls.micro||GEN.micro;
+ $('#rLes').textContent=L.present?'Present':'Not Detected';$('#rProb').textContent=`${Number(L.probability).toFixed(3)} / ${(L.probability*100).toFixed(1)}% (Threshold: ${L.threshold})`;
+ $('#rPar').textContent=M.parasites_detected?'Parasites Detected':'No Parasites Detected';const c=M.amastigote_count||0;$('#rCnt').textContent=`${c} Amastigote${c===1?'':'s'} Detected`;
+ $('#rSys').textContent=r.system_output||'—';$('#rNext').textContent=r.recommended_next_step||'—';$('#results').classList.remove('hidden');$('#results').scrollIntoView({behavior:'smooth'})}
+$('#again').onclick=()=>{DEFS.forEach(d=>$('#d-'+d.k+' .rm').click());$('#results').classList.add('hidden');$('#workspace').scrollIntoView({behavior:'smooth'})};
+const rd=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('#dl').onclick=async()=>{
+ const r=lastResult,L=r.clinical_lesion||{},M=r.microscopy||{};
+ const [iL,iM]=await Promise.all([files.lesion?jpeg(files.lesion,900,.85):GEN.lesion,files.micro?jpeg(files.micro,900,.85):GEN.micro]);
+ const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LeishScan AI Report ${esc(lastId)}</title><style>body{font-family:Inter,Arial,sans-serif;margin:0;background:#f2fbfa;color:#0f2f30}header{background:linear-gradient(135deg,#042324,#115e59);color:#fff;padding:28px 40px}main{max-width:960px;margin:24px auto;padding:0 24px}.g{display:grid;grid-template-columns:1fr 1fr;gap:20px}.c{background:#fff;border-radius:14px;padding:18px;box-shadow:0 6px 24px rgba(9,54,55,.12);margin-bottom:20px}img{width:100%;height:260px;object-fit:cover;border-radius:10px}h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#0f766e;margin:14px 0 4px}.v{font-size:20px;font-weight:700}.d{border:1px solid #f59e0b;background:#fffbeb;color:#78350f;padding:12px 16px;border-radius:10px}@media(max-width:700px){.g{grid-template-columns:1fr}}</style></head><body><header><h1 style="margin:0">LeishScan AI – Clinical Summary</h1><p style="margin:6px 0 0;opacity:.85">Request ID: ${esc(lastId)} · ${new Date().toLocaleString()}</p></header><main>
+<div class="g"><div class="c"><b>Clinical Lesion Image (Macroscopic)</b><img src="${iL}" alt="Lesion"><h2>Lesion Classification</h2><div class="v">${L.present?'Present':'Not Detected'}</div><h2>Model Probability</h2><div class="v">${Number(L.probability).toFixed(3)} (${(L.probability*100).toFixed(1)}%) · Threshold ${esc(L.threshold)}</div></div>
+<div class="c"><b>Microscopy Image (Giemsa Stain)</b><img src="${iM}" alt="Slide"><h2>Parasite Presence</h2><div class="v">${M.parasites_detected?'Parasites Detected':'No Parasites Detected'}</div><h2>Amastigote Detection Count</h2><div class="v">${esc(M.amastigote_count)}</div></div></div>
+<div class="c"><h2 style="margin-top:0">System Output</h2><div class="v">${esc(r.system_output)}</div><h2>Recommended Next Step</h2><div class="v">${esc(r.recommended_next_step)}</div></div>
+<div class="d"><b>Disclaimer:</b> Decision-support tool for research use. Not a substitute for clinical judgement.</div></main></body></html>`;
+ const blob=new Blob([html],{type:'text/html'}),name=`LeishScan-Report-${lastId}.html`;
+ const anchorSave=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
+ let dls=null;try{dls=window.claude?await claude.use('downloads'):null}catch(e){}
+ if(dls){try{await dls.save({filename:name,data:blob})}catch(e){if(!e||e.code!=='declined')anchorSave()}}else anchorSave()
+};
+
+const MS=[['database','1. Public Datasets','(for training)'],['cpu','2. Model Development','(5-fold DenseNet121 + YOLOv8n)'],['git-merge','3. Integration','(dual-modality)'],['clipboard-check','4. Testing','(Rawalpindi Leprosy Centre)']];
+$('#mSteps').innerHTML=MS.map((m,i)=>`<div class="relative"><div class="card p-5 text-center h-full"><div class="mx-auto w-14 h-14 rounded-full bg-gradient-to-br from-teal-300 to-teal-700 text-white grid place-items-center shadow-lg"><i data-lucide="${m[0]}"></i></div><h3 class="font-bold mt-3 text-sm">${m[1]}</h3><p class="text-xs text-[color:var(--mut)] mt-1">${m[2]}</p></div>${i<3?'<i data-lucide="arrow-right" class="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 w-5 text-teal-600 z-10"></i>':''}</div>`).join('');
+/* ---------- atmosphere ---------- */
+const CELLS=st=>`<svg class="absolute pointer-events-none" style="opacity:.11;animation:driftSlow 38s ease-in-out infinite;${st}" viewBox="0 0 200 200" fill="none" stroke="#99f6e4" stroke-width="1.5"><circle cx="70" cy="70" r="46"/><circle cx="60" cy="62" r="18" fill="#99f6e4" fill-opacity=".5"/><g fill="#99f6e4"><circle cx="88" cy="88" r="3"/><circle cx="96" cy="70" r="3"/><circle cx="82" cy="104" r="2.5"/><circle cx="52" cy="92" r="3"/></g><circle cx="148" cy="120" r="34"/><circle cx="142" cy="114" r="12" fill="#99f6e4" fill-opacity=".5"/><g fill="#99f6e4"><circle cx="160" cy="132" r="3"/><circle cx="150" cy="140" r="2.5"/></g><circle cx="90" cy="160" r="22"/><circle cx="86" cy="156" r="8" fill="#99f6e4" fill-opacity=".5"/></svg>`;
+$('#bokeh').insertAdjacentHTML('beforeend',CELLS('left:2%;top:6%;width:340px')+CELLS('right:28%;bottom:10%;width:250px;animation-delay:-14s')+CELLS('right:2%;top:4%;width:200px;animation-delay:-24s'));
+const DECO=`<div class="deco absolute inset-0 pointer-events-none overflow-hidden" style="z-index:0"><svg class="absolute inset-0 w-full h-full" viewBox="0 0 1440 700" preserveAspectRatio="none"><path d="M0 420C240 330 460 520 760 430S1220 300 1440 400V700H0Z" fill="rgba(20,184,166,.07)"/><path d="M0 540C300 450 540 620 860 540S1260 470 1440 560V700H0Z" fill="rgba(15,118,110,.05)"/><path d="M0 120C260 200 520 40 820 110S1250 190 1440 90V0H0Z" fill="rgba(20,184,166,.05)"/></svg><div class="absolute -left-24 -top-24 w-[380px] h-[380px] rounded-full mix-blend-multiply" style="background:radial-gradient(circle,rgba(20,184,166,.2),transparent 70%)"></div><div class="absolute -right-28 -bottom-24 w-[460px] h-[460px] rounded-full mix-blend-multiply" style="background:radial-gradient(circle,rgba(15,118,110,.16),transparent 70%)"></div><div class="absolute right-[8%] top-10 w-40 h-40 rounded-full" style="border:2px solid rgba(15,118,110,.08);background:radial-gradient(circle at 35% 35%,rgba(20,184,166,.08),transparent 60%)"></div><div class="absolute left-[6%] bottom-10 w-24 h-24 rounded-full" style="border:2px solid rgba(15,118,110,.08)"></div></div>`;
+document.querySelectorAll('.lt').forEach(x=>{x.classList.add('relative','overflow-hidden');x.insertAdjacentHTML('afterbegin',DECO)});
+
+/* ---------- hidden admin customizer (client-side gate) ---------- */
+const TXT=[];const T=(l,sel,m)=>(TXT.push([l,sel,m]),['t',TXT.length-1,l]);const I=(l,k)=>['i',k,l];
+const SECS=[
+['1. Header & Hero Banner',[T('Brand title','header .leading-tight div:nth-child(1)'),T('Brand subtitle','header .leading-tight div:nth-child(2)'),T('Hero headline','#home h1'),T('Hero subtitle','#home p.text-lg'),I('Hero Card 1 – Clinical Lesion image','hero1'),I('Hero Card 2 – Giemsa slide image','hero2')]],
+['2. Screening & Upload Section',[T('Section heading','#workspace h2'),T('Section subtitle','#workspace p.text-center'),I('Microscope visual','scopeU'),['d']]],
+['3. About LeishScan AI',[T('About heading','#about h2'),T('About description','#about p.text-lg'),I('About circular slide image','about'),I('About microscope visual','scopeA')]],
+['4. Methodology (From Data to Decision)',[T('Section title','#method h2'),T('Section subtitle','#method p.text-lg'),...[1,2,3,4].flatMap(n=>[T(`Step ${n} title`,`#mSteps > div:nth-child(${n}) h3`),T(`Step ${n} description`,`#mSteps > div:nth-child(${n}) p`)])]],
+['5. The Clinical Gap',[T('Section heading','#gap h2'),T('Main description','#gap p'),T('Our Contribution text','#gap .bg-teal-50',1)]],
+['6. With Gratitude (Supervisors)',[1,2,3].flatMap(n=>[T(`Supervisor ${n} name`,`#thanks li:nth-child(${n}) b`),T(`Supervisor ${n} role`,`#thanks li:nth-child(${n}) span`)])],
+['7. Ethical Research & UN SDGs',[T('Heading','#impact h2'),T('IRB approval text','#impact p.text-lg'),T('IRB badge label','#impact .jk.font-bold'),...[3,9,10,17].map(n=>I(`SDG ${n} icon`,'sdg'+n))]]];
+const gT=t=>{const e=$(t[1]);return e?(t[2]?e.lastChild.textContent.trim():e.textContent):''};
+const sT=(t,v)=>{const e=$(t[1]);if(e){if(t[2])e.lastChild.textContent=' '+v;else e.textContent=v}};
+const DEF=TXT.map(gT);
+const svgOf=sec=>[...document.querySelectorAll(sec+' svg')].find(v=>v.querySelector('use'));
+const SCOPE0={scopeU:svgOf('#workspace')?.outerHTML,scopeA:svgOf('#about')?.outerHTML};
+const SDG0={};[3,9,10,17].forEach(n=>SDG0['sdg'+n]=$(`[data-sdg="${n}"]`).innerHTML);
+let cfg={img:{},txt:{}};try{cfg=JSON.parse(LS.get('ls_cfg')||'')||cfg}catch(e){}cfg.img=cfg.img||{};cfg.txt=cfg.txt||{};
+const saveCfg=()=>{if(!LS.set('ls_cfg',JSON.stringify(cfg))){const m=$('#aMsg');if(m)m.textContent='Storage full – please use a smaller image.'}};
+function applyImg(k,src){
+ if(k==='hero1')$('#home img[data-gen=lesion]').src=src;
+ else if(k==='hero2')$('#home img[data-gen=micro]').src=src;
+ else if(k==='about')$('#about img[data-gen=micro]').src=src;
+ else if(k==='scopeU'||k==='scopeA'){const sec=k==='scopeU'?'#workspace':'#about',ex=$(sec+' img[data-scope]');if(ex)ex.src=src;else{const v=svgOf(sec);if(v)v.outerHTML=`<img data-scope src="${src}" class="${v.getAttribute('class')||''} object-contain" alt="Microscope">`}}
+ else{const e=$(`[data-sdg="${k.slice(3)}"]`);if(e)e.innerHTML=`<img src="${src}" class="w-12 h-12 mx-auto object-contain" alt="">`}}
+function resetImg(k){delete cfg.img[k];saveCfg();
+ if(k==='hero1')$('#home img[data-gen=lesion]').src=GEN.lesion;else if(k==='hero2')$('#home img[data-gen=micro]').src=GEN.micro;else if(k==='about')$('#about img[data-gen=micro]').src=GEN.micro;
+ else if(k.startsWith('scope')){const e=$((k==='scopeU'?'#workspace':'#about')+' img[data-scope]');if(e)e.outerHTML=SCOPE0[k]}
+ else $(`[data-sdg="${k.slice(3)}"]`).innerHTML=SDG0[k]}
+Object.keys(cfg.img).forEach(k=>applyImg(k,cfg.img[k]));Object.keys(cfg.txt).forEach(i=>sT(TXT[i],cfg.txt[i]));
+
+const closeA=clr=>{['lock','adm'].forEach(i=>{const e=$('#'+i);if(e)e.remove()});document.body.style.paddingBottom='';if(clr){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}};
+function lockScreen(){closeA();const o=document.createElement('div');o.id='lock';o.className='fixed inset-0 z-50 grid place-items-center p-6';o.style.cssText='background:rgba(4,35,36,.8);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)';
+ o.innerHTML=`<div class="w-full max-w-md rounded-3xl p-8 text-center text-white" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);box-shadow:0 30px 80px rgba(0,0,0,.5)">
+ <div class="mx-auto w-16 h-16 rounded-full grid place-items-center" style="background:rgba(20,184,166,.2);border:1px solid rgba(94,234,212,.4)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5eead4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+ <h2 class="jk text-2xl font-extrabold mt-5">LeishScan AI — Administrator Access</h2><p class="text-teal-100 text-sm mt-2">Enter the administrator password to customize this site.</p>
+ <input id="aPw" type="password" placeholder="Password" autocomplete="off" class="w-full mt-6 rounded-xl px-4 py-3 text-slate-900 outline-none focus:ring-2 ring-teal-400">
+ <div id="aE" class="hidden mt-3 rounded-lg px-3 py-2 text-sm font-semibold" style="background:rgba(239,68,68,.2);border:1px solid #f87171;color:#fecaca"></div>
+ <div class="flex gap-3 mt-5"><button id="aGo" class="btn flex-1">Unlock Panel</button><button id="aCn" class="glass flex-1 rounded-full py-3 font-semibold">Cancel</button></div></div>`;
+ document.body.appendChild(o);
+ const go=()=>{if($('#aPw').value==='Hoooria2003.'){SS.set('ls_admin','1');dock()}else{const e=$('#aE');e.textContent='Incorrect password. Please try again.';e.classList.remove('hidden');$('#aPw').value='';$('#aPw').focus()}};
+ $('#aGo').onclick=go;$('#aPw').onkeydown=e=>{if(e.key==='Enter')go();if(e.key==='Escape')closeA(true)};$('#aCn').onclick=()=>closeA(true);$('#aPw').focus()}
+const fld=it=>{
+ if(it[0]==='d')return`<label class="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" id="aDemo" ${demo?'checked':''}> Demo Mode – use sample data for quick testing (no backend)</label>`;
+ if(it[0]==='t'){const i=it[1],long=DEF[i].length>70;return`<label class="block text-xs ${long?'md:col-span-2':''}"><span class="font-medium">${it[2]}</span><textarea data-txt="${i}" rows="${long?3:1}" class="w-full border border-slate-300 rounded-lg p-2 mt-1 text-sm"></textarea></label>`}
+ return`<div class="text-xs"><div class="font-medium mb-1">${it[2]}</div><input type="file" accept="image/*" data-img="${it[1]}"><button data-rst="${it[1]}" class="text-red-600 underline ml-2">Reset</button></div>`};
+function dock(){closeA();const p=document.createElement('div');p.id='adm';p.className='fixed bottom-0 inset-x-0 z-50 max-h-[60vh] overflow-y-auto shadow-2xl border-t-2 border-teal-500 bg-white text-slate-800';
+ p.innerHTML=`<div class="sticky top-0 z-10 bg-teal-900 text-white px-4 py-2.5 flex flex-wrap items-center gap-3"><b class="jk">Admin Customizer</b><span class="text-xs text-teal-200 flex-1">● Changes auto-saved locally</span><button id="aAll" class="text-xs border border-teal-300 rounded-full px-3 py-1">Reset All Defaults</button><button id="aLock" class="text-xs bg-teal-500 rounded-full px-3 py-1 font-semibold">Lock &amp; Close</button></div>
+ <div class="p-3 space-y-2 max-w-5xl mx-auto">${SECS.map(([t,items],si)=>`<details ${si===0?'open':''} class="border border-teal-200 rounded-xl overflow-hidden"><summary class="cursor-pointer select-none bg-teal-50 px-4 py-2.5 font-semibold text-teal-900">▾ ${t}</summary><div class="p-4 grid md:grid-cols-2 gap-4">${items.map(fld).join('')}</div></details>`).join('')}<div id="aMsg" class="text-xs text-red-600 pb-2"></div></div>`;
+ document.body.appendChild(p);document.body.style.paddingBottom='60vh';
+ p.querySelectorAll('[data-txt]').forEach(t=>t.value=cfg.txt[t.dataset.txt]??DEF[t.dataset.txt]);
+ p.onchange=async e=>{const t=e.target;if(t.id==='aDemo'){demo=t.checked;LS.set('ls_demo',demo?'1':'0');upd()}else if(t.dataset.img&&t.files[0]){const k=t.dataset.img,sd=k.startsWith('sdg');try{cfg.img[k]=await scale(t.files[0],sd?160:1000,sd?'image/png':'image/jpeg',.86);saveCfg();applyImg(k,cfg.img[k])}catch(x){$('#aMsg').textContent='Could not read that image.'}}};
+ p.oninput=e=>{const i=e.target.dataset.txt;if(i!=null){cfg.txt[i]=e.target.value;saveCfg();sT(TXT[i],e.target.value)}};
+ p.onclick=e=>{const t=e.target;if(t.id==='aLock'){SS.set('ls_admin','');closeA(true)}else if(t.id==='aAll'){Object.keys(cfg.img).forEach(resetImg);TXT.forEach((x,i)=>sT(x,DEF[i]));cfg={img:{},txt:{}};LS.set('ls_cfg','');dock()}else if(t.dataset.rst)resetImg(t.dataset.rst)}}
+function openAdmin(){if($('#lock')||$('#adm'))return;SS.get('ls_admin')==='1'?dock():lockScreen()}
+addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();openAdmin()}});
+if(location.hash==='#admin')openAdmin();addEventListener('hashchange',()=>{if(location.hash==='#admin')openAdmin()});
+lucide.createIcons();
+</script>
+</body>
+</html>
