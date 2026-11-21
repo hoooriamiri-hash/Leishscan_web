@@ -252,7 +252,7 @@ upd();
 
 const STEPS=['Uploading clinical & slide images securely','Running lesion classification ensemble','Running amastigote detection on all slide fields','Synthesizing dual-modality output'];
 const toB64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
-const API_URL=location.hostname==='leishscan-ai.netlify.app'?'/.netlify/functions/predict':'https://leishscan-ai.netlify.app/.netlify/functions/predict';
+const API_URL=(location.protocol==='file:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')?'https://leishscan-ai.netlify.app/.netlify/functions/predict':'/.netlify/functions/predict';
 const api=b=>fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error('Server error '+r.status);return r.json()});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const scale=(f,max,type,q)=>rd(f).then(u=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);const x=c.getContext('2d');if(type==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(i,0,0,c.width,c.height);res(c.toDataURL(type,q))};i.onerror=rej;i.src=u}));
