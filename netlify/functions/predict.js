@@ -1,12 +1,19 @@
 const REPO = "hoooriamiri-hash/leishscan-ai-api";
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const json = (code, body) => ({
   statusCode: code,
-  headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS },
   body: JSON.stringify(body),
 });
 
 const MAX_B64 = 1_500_000;
+const MAX_TOTAL_B64 = 5_600_000; // stays under the 6 MB function payload limit
 const MAX_MICRO = 5;
 
 async function uploadToImgBB(b64, name) {
@@ -33,6 +40,8 @@ const gh = (path, opts = {}) =>
   });
 
 exports.handler = async (event) => {
+  // CORS preflight (needed when index.html is opened from file:// or localhost)
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return json(400, { error: "Invalid JSON" }); }
@@ -58,6 +67,8 @@ exports.handler = async (event) => {
         return json(400, { error: `Maximum ${MAX_MICRO} microscopy images allowed` });
       if (lesionBase64.length > MAX_B64 || microList.some((m) => m.length > MAX_B64))
         return json(413, { error: "Image too large" });
+      if (lesionBase64.length + microList.reduce((a, m) => a + m.length, 0) > MAX_TOTAL_B64)
+        return json(413, { error: "Total upload too large" });
 
       // Upload lesion + all microscopy fields in parallel
       const [lesionUrl, ...microUrls] = await Promise.all([
